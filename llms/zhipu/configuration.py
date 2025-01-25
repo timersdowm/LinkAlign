@@ -1,0 +1,15 @@
+from SchemaLinkingCompare.config import *
+
+"""
+智普AI大模型参数配置
+"""
+
+ZHIPU_API_KEY = ZHIPU_API_KEY or None
+
+MODEL_NAME = ZHIPU_MODEL_NAME or "glm-4-0520"
+
+TEMPERATURE = TEMPERATURE or 0.25
+
+MAX_OUTPUT_TOKENS = MAX_OUTPUT_TOKENS or 4096
+
+CONTEXT_WINDOW = CONTEXT_WINDOW or 120000

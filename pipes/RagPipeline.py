@@ -157,7 +157,7 @@ if __name__ == "__main__":
     from SchemaLinkingCompare.llms.zhipu.ZhipuModel import ZhipuModel
 
     llm = ZhipuModel()
-    FILE_PATH = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\bird\databases"
+    FILE_PATH = r""
     vector_index = RagPipeLines.build_index_from_source(
         data_source=FILE_PATH,
         persist_dir=FILE_PATH + r"\vector_store",

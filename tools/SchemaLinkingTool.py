@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-
-"""
-数据库的范围决定了 Schema Linking 的难度。过往文献实验通常在单个数据库上进行，但实际场景中往往并不清楚所在的数据库。从数据库的范围可以分成两个方面，单一数据库 和 所有数据库，后者需要对数据库的所有表信息进行拼接。
-另一方面，提示方法同样有两类，zero-shot 和 few-shot ，实验同样需要比较不同提示方法的差异。
-此外，还需要比较不同模型的性能....
-"""
 import asyncio
 from datetime import datetime
 from llama_index.core.indices.vector_store import VectorIndexRetriever
@@ -150,7 +144,7 @@ def get_ids_from_source(
 
 class SchemaLinkingTool:
     @classmethod
-    def link_schema_by_question(
+    def link_schema_by_rag(
             cls,
             llm: ZhipuModel = None,
             index: Union[SummaryIndex, VectorStoreIndex] = None,
@@ -254,16 +248,7 @@ class SchemaLinkingTool:
         reason_query = llm.complete(prompt=prompt).text  # 增强后的问题查询
 
         return reason_query
-
-    @classmethod
-    def judge(
-            cls,
-            llm: None,
-            query: str = None,
-            context: str = None
-    ):
-        pass
-
+        
     @classmethod
     def locate(
             cls,
@@ -352,93 +337,6 @@ class SchemaLinkingTool:
         )
 
         database = llm.complete(summary_prompt).text
-
-        # print(chat_history)
-
-        return database
-
-    @classmethod
-    def locate_with_multi_agent2(
-            cls,
-            llm=None,
-            turn_n: int = 2,
-            query: str = None,
-            nodes: List[NodeWithScore] = None,
-            context_lis: List[str] = None,
-            size=4
-    ) -> str:
-        if not query:
-            raise Exception("输入的查询不能为空！")
-
-        llm = llm if llm else ZhipuModel()
-
-        if context_lis:
-            pass
-        elif not context_lis and nodes:
-            context_lis = get_all_schemas_from_schema_text(nodes, output_format="schema", schemas_format="list")
-        else:
-            raise Exception("输入参数中没有包含 database schemas")
-
-        def filter_database(sub_context_lis) -> str:
-            context_str = ""
-            for ind, context in enumerate(sub_context_lis):
-                context_str += f"""
-[The Start of Candidate Database"{ind + 1}"'s Schema]
-{context}
-[The End of Candidate Database"{ind + 1}"'s Schema]
-                    """
-                source_text = SOURCE_TEXT_TEMPLATE.format(query=query, context_str=context_str)
-
-                chat_history = []
-
-                # one-by-one
-                for i in range(turn_n):
-                    data_analyst_prompt = FAIR_EVAL_DEBATE_TEMPLATE.format(
-                        source_text=source_text,
-                        chat_history="\n".join(chat_history),
-                        role_description=DATA_ANALYST_ROLE_DESCRIPTION,
-                        agent_name="data analyst"
-                    )
-                    data_analyst_debate = llm.complete(data_analyst_prompt).text
-                    chat_history.append(f"""
-            [Debate Turn: {i + 1}, Agent Name:"data analyst", Debate Content:{data_analyst_debate}]
-                        """)
-
-                    data_scientist_prompt = FAIR_EVAL_DEBATE_TEMPLATE.format(
-                        source_text=source_text,
-                        chat_history="\n".join(chat_history),
-                        role_description=DATABASE_SCIENTIST_ROLE_DESCRIPTION,
-                        agent_name="data scientist"
-                    )
-                    data_scientist_debate = llm.complete(data_scientist_prompt).text
-                    chat_history.append(f"""
-            [Debate Turn: {i + 1}, Agent Name:"data scientist", Debate Content:{data_scientist_debate}]
-                        """)
-
-                summary_prompt = FAIR_EVAL_DEBATE_TEMPLATE.format(
-                    source_text=source_text,
-                    chat_history="\n".join(chat_history),
-                    role_description=SUMMARY_TEMPLATE,
-                    agent_name="debate terminator"
-                )
-
-                database = llm.complete(summary_prompt).text
-
-                return database
-
-        def chunk_list(lst, chunk_size):
-            """将列表lst等分成指定长度chunk_size的多个子列表"""
-            return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
-
-        database = ""
-        while len(context_lis) > 1:
-            sub_context_lis_lis = chunk_list(context_lis, chunk_size=size)
-            db_lis = []
-            for scl in sub_context_lis_lis:
-                db_lis.append(filter_database(scl))
-            if len(db_lis) == 0:
-                database = db_lis[0]
-            context_lis = filter_nodes_by_database(nodes, db_lis)
 
         # print(chat_history)
 
@@ -612,49 +510,7 @@ class SchemaLinkingTool:
 
             return output
 
-    @classmethod
-    def schema_linking(
-            cls,
-            question: str = None,
-            llm=None,
-            turn_n: int = 2,
-            retriever_lis: List[VectorIndexRetriever] = None,
-            remove_duplicate: bool = True,
-            retrieval_mode: str = "agent",  # 两种检索方式，pipeline 或者 agent
-            open_agent_debate: bool = False,
-            generate_mode: str = "agent"
-    ) -> str:
-        if not question:
-            raise Exception("输入参数中问题不能为空！")
-        elif not retriever_lis:
-            raise Exception("输入参数中索引列表不能为空！")
-
-        if retrieval_mode not in ["pipeline", "agent"]:
-            raise Exception("输入参数中检索模式不正确！")
-
-        llm = llm if llm else ZhipuModel()
-
-        if retrieval_mode == "pipeline":
-            database = SchemaLinkingTool.retrieve_complete(question, retriever_lis, llm, open_locate=True,
-                                                           remove_duplicate=remove_duplicate,
-                                                           open_agent_debate=open_agent_debate)
-        else:
-            database = SchemaLinkingTool.retrieve_complete_by_multi_agent_debate(question, turn_n, retriever_lis, llm,
-                                                                                 open_locate=True,
-                                                                                 remove_duplicate=remove_duplicate,
-                                                                                 open_agent_debate=open_agent_debate
-                                                                                 )
-        with open(ALL_DATABASE_DATA_SOURCE + rf"\{database.lower()}.sql", "r", encoding="utf-8") as file:
-            schema = file.read().strip()
-
-        if generate_mode == "agent":
-            predict_schema = cls.generate_by_multi_agent(llm=llm, query=question, context=schema, turn_n=turn_n)
-        else:
-            query = SCHEMA_LINKING_MANUAL_TEMPLATE.format(few_examples=SCHEMA_LINKING_FEW_EXAMPLES, context_str=schema,
-                                                          question=question)
-            predict_schema = llm.complete(query).text
-
-        return predict_schema
+    
 
     @classmethod
     def generate_by_multi_agent(
@@ -718,42 +574,56 @@ class SchemaLinkingTool:
         return schema
 
     @classmethod
-    def pipeline(
+    def schema_linking(
             cls,
-            llm=None,
             question: str = None,
+            llm=None,
+            turn_n: int = 2,
             retriever_lis: List[VectorIndexRetriever] = None,
+            remove_duplicate: bool = True,
+            retrieval_mode: str = "agent",  # 两种检索方式，pipeline 或者 agent
+            open_agent_debate: bool = False,
+            generate_mode: str = "agent"
+    ) -> str:
+        if not question:
+            raise Exception("输入参数中问题不能为空！")
+        elif not retriever_lis:
+            raise Exception("输入参数中索引列表不能为空！")
 
-    ):
-        #  Step one: Reduce Noise by Response Filtering
-        index_lis = [ret.index for ret in retriever_lis]
+        if retrieval_mode not in ["pipeline", "agent"]:
+            raise Exception("输入参数中检索模式不正确！")
 
-        question_nodes = cls.parallel_retrieve(retriever_lis, [question])
+        llm = llm if llm else ZhipuModel()
 
-        sub_ids = get_sub_ids(question_nodes, index_lis)
+        if retrieval_mode == "pipeline":
+            database = SchemaLinkingTool.retrieve_complete(question, retriever_lis, llm, open_locate=True,
+                                                           remove_duplicate=remove_duplicate,
+                                                           open_agent_debate=open_agent_debate)
+        else:
+            database = SchemaLinkingTool.retrieve_complete_by_multi_agent_debate(question, turn_n, retriever_lis, llm,
+                                                                                 open_locate=True,
+                                                                                 remove_duplicate=remove_duplicate,
+                                                                                 open_agent_debate=open_agent_debate
+                                                                                 )
+        with open(ALL_DATABASE_DATA_SOURCE + rf"\{database.lower()}.sql", "r", encoding="utf-8") as file:
+            schema = file.read().strip()
 
-        # 设置新的id
-        for ret in retriever_lis:
-            ret.change_node_ids(sub_ids)
+        if generate_mode == "agent":
+            predict_schema = cls.generate_by_multi_agent(llm=llm, query=question, context=schema, turn_n=turn_n)
+        else:
+            query = SCHEMA_LINKING_MANUAL_TEMPLATE.format(few_examples=SCHEMA_LINKING_FEW_EXAMPLES, context_str=schema,
+                                                          question=question)
+            predict_schema = llm.complete(query).text
 
-        # 进行问题增强
-        analysis = cls.reason_enhance(llm=llm, query=question)  # 调用大模型，通过推理对原始问题进行增强
-        enhanced_question = question + analysis
-
-        enhance_question_nodes = cls.parallel_retrieve(retriever_lis, [enhanced_question])
-
-        for ret in retriever_lis:
-            ret.back_to_original_ids()
-
-        nodes = question_nodes + enhance_question_nodes
-
+        return predict_schema
 
 #
 if __name__ == "__main__":
+    if __name__ == "__main__":
     #     import pandas as pd
     # #
     #     data = pd.read_excel(
-    #         r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\dataset\SPIDER_DEV_DATASET.xlsx")
+    #         r"E:\")
 
     vector_index = RagPipeLines.build_index_from_source(
         data_source=ALL_DATABASE_DATA_SOURCE,
@@ -764,86 +634,37 @@ if __name__ == "__main__":
     import pandas as pd
     from SchemaLinkingCompare.utils import *
 
-    # data = pd.read_excel(
-    #     r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\benchmark\hard\dataset_v5.xlsx")
+    data = pd.read_excel(
+        r"E:\")
     #
-    # # llm = ZhipuModel(api_key="e918bfb3e3ab45527ef6bcad0b20b4d9.LUvi7Jw6DJpNtlmo", model_name="glm-4-plus")
-    #
-    # data = filter_data_by_db(data, get_sql_files(ALL_DATABASE_DATA_SOURCE))
+    llm = ZhipuModel(api_key=API_KEY, model_name=model_name)
+
+    data = filter_data_by_db(data, get_sql_files(ALL_DATABASE_DATA_SOURCE))
     retriever = RagPipeLines.get_retriever(index=vector_index, similarity_top_k=5)
-    # question_lis = list(data["NLQ"])
-    # database_lis = list(data["DATABASE"])
-    # sql_lis = list(data["GOLD SQL"])
-    # question = "How many orders were from Hanna Moos company in 1999? # Helpful Evidence: \"Hanna Moos\" is the CompanyName; in 1999 refer to YEAR (OrderDate) = 1999"
-    # question = "What is the average height in centimeters of all the players in the position of defense? # Helpful Evidence: average = AVG(height_in_cm); players refers to PlayerName; position of defense refers to position_info = 'D'"
-    # database = "ice_hockey_draft"
-    # database = SchemaLinkingTool.retrieve_complete(
-    #     question=question,
-    #     retriever_lis=[retriever],
-    #     # open_reason_enhance=True,
-    #     open_locate=True
-    # )
-    # with open(
-    #         r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\logs\bird\agent_agent_agent\error2.json",
-    #         'r', encoding='utf-8') as file:
-    #     data = json.load(file)
-    data = pd.read_excel(r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\dataset\refine_question\refined_question(filter_by_sql_length).xlsx")
-    count = 0
-    question_lis = list(data["NLQ"])
-    for ques in question_lis:
-        print(ques)
-        predict_db = SchemaLinkingTool.retrieve_complete_by_multi_agent_debate(
-            ques,
-            retriever_lis=[retriever],
-            is_all=True,
-            open_locate=False,
-            open_agent_debate=True,
-            retrieve_turn_n=3,
-            locate_turn_n=2
-        )
-    # import concurrent.futures
-    #
-    #
-    # # Function to process each sample
-    # def process_sample(sample):
-    #     predict_db = SchemaLinkingTool.retrieve_complete_by_multi_agent_debate(
-    #         question,
-    #         retriever_lis=[retriever],
-    #         is_all=True,
-    #         open_locate=True,
-    #         open_agent_debate=True,
-    #         retrieve_turn_n=1,
-    #         locate_turn_n=2
-    #     )
-    #     print(sample["database"], predict_db)
-    #     if sample["database"] == predict_db:
-    #         return 1  # Increment count if the condition is met
-    #     return 0
-    #
-    #
-    # # Main function to process data with multithreading
-    # def process_data(data):
-    #     with concurrent.futures.ThreadPoolExecutor() as executor:
-    #         # Submit each sample to the thread pool and process them concurrently
-    #         results = executor.map(process_sample, data)
-    #
-    #         # Sum up the results to get the final count
-    #         count = sum(results)
-    #
-    #     return count
 
+    question_lis, db_lis = list(data["NLQ"]), list(data["DATABASE"])
+    import time
 
-    # Example usage
-    # a = process_data(data)
-    # print("Final count:", a)
-    # print(predict_db)
-    # res = SchemaLinkingTool.generate_by_multi_agent(query=question,
-    #                                                 database=database,
-    #                                                 turn_n=1,
-    #                                                 linker_num=2)
-    # predict_schema = res[res.rfind("["):res.rfind("]") + 1]
-    # # print(question_lis[1])
-    # # print(sql_lis[1])
-    # # print(database_lis[1])
-    # print(res)
-    # print(predict_schema)
+    # 记录循环开始前的时间
+    start_time = time.time()
+
+    num = 20
+    for i in range(num):
+        try:
+            SchemaLinkingTool.schema_linking(
+                question=question_lis[i],
+                llm=llm,
+                retriever_lis=[retriever],
+                retrieval_mode="pipeline",
+                generate_mode="pipeline"
+            )
+            print(f"No.{i + 1} 已完成")
+        except:
+            continue
+    # 记录循环结束后的时间
+    end_time = time.time()
+
+    # 计算总耗时
+    total_time = end_time - start_time
+    print(f"Avg time consumed: {total_time / num} seconds")
+    print(f"Avg token consumed: {llm.input_token / num} tokens")

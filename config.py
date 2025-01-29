@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 # 本地文件存储目录
-# ALL_DATABASE_DATA_SOURCE = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\spider\medium"
-# ALL_DATABASE_DATA_SOURCE = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\all_database_with_comments"
-# ALL_DATABASE_DATA_SOURCE = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\databases"
 ALL_DATABASE_DATA_SOURCE = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\bird\databases"
 # ALL_DATABASE_DATA_SOURCE = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\spider\all_database"
 # ALL_DATABASE_DATA_SOURCE = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\spider\hard_orgin"
-# ALL_DATABASE_DATA_SOURCE = r"F:\benchmark\SPIDER2\spider2-lite\extract\databases"
 
 # 训练数据存储目录
 DATASET_PATH = r"E:\在校学习\科研\大模型环境下数据查询语言生成通用性的研究\code\SchemaLinkingCompare\data\dataset"

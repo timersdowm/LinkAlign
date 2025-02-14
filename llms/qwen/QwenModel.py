@@ -23,10 +23,9 @@ class QwenModel(CustomLLM):
 
     def __init__(self, model_name: str = None, api_key: str = None, is_call: bool = True, temperature: float = 0.45,
                  **kwargs):
-        super().__init__(**kwargs)  # 调用父类构造函数
+        super().__init__(**kwargs) 
         api_key = QWEN_API_KEY if not api_key else api_key
         self.client = OpenAI(
-            # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
             api_key=api_key,
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )

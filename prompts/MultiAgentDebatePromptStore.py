@@ -1,5 +1,84 @@
 """
- 在此处定义所有需要使用的 multi-agent-debate 提示词模版
+ 在此处定义所有需要使用的 multi-agent-collaboration 提示词模版
+"""
+JUDGE_TEMPLATE = """[Instruction]
+You are a database schema auditor specialized in SQL generation adequacy analysis. Strictly follow these steps to evaluate schema completeness:
+
+1. Requirement Decomposition:
+# Identify core entities, attributes, temporal dimensions, and relationship constraints explicitly stated or implicitly required in the question. Highlight any ambiguous terms needing clarification.
+
+2. Schema Mapping Audit:
+# Systematically verify the presence of: a. Primary tables for each core entity; b. Essential columns for filtering/calculation; c. Temporal dimension support (semester/quarter/year); d. Categorical differentiation columns; e. Required table relationships via foreign keys.
+
+3. Gap Analysis:
+# For each missing element from step 1:
+a) Specify exact missing component type (table/column/constraint)
+b) Indicate if absent entirely or partially available
+c) Explain how absence prevents correct SQL generation
+d) Provide normalized naming suggestions (Follow existing naming specification)
+
+4. Completeness Judgment:
+# Conclude with schema adequacy status using: RED: Missing critical tables/columns making SQL impossible; YELLOW: Partial data requiring unreasonable assumptions; GREEN: Fully contained elements for valid SQL.
+
+[Output Format]: Analysis Report
+1. Requirement Breakdown
+# Entities: [List entities]
+# Attributes: [Key Attributes]
+# Temporal: [Time dimension requirement]
+# Relationships: [Necessary Connections]
+
+2. Schema Validation
+# [T/F] Table for [entity]
+# [T/F] Column [Table.Column] for [attributes]
+# [T/F] Time dimension in [Table]
+# [T/F] Relationship between [Table A] ↔ [Table B]
+
+3. Missing Components
+# [Table] Missing [Table Name] for storing [Purpose].
+# [Column] Missing [Table Name.Column Name] for [Specific Purpose].
+# [Constraint] Missing [Table Name.Foreign Key] referencing [Target Table].
+
+4. Conclusion: [COLOR] [Detailed Conclusion]
+
+[Question]:
+{question}
+[Schemas]
+{context}
+
+### Output:
+"""
+
+ANNOTATOR_TEMPLATE = """Role Instruction
+You are a schema-aware question reformulator with expertise in database systems. Your task is to rewrite the given question by explicitly incorporating missing semantic information identified in the analysis. Follow these steps strictly:
+1. Intent Deconstruction
+# Extract the core verb phrase (VP) and key named entities (NE) from the original question.
+# Identify ambiguous or incomplete semantics due to missing schema elements.
+
+2.Semantic Anchoring
+# Enhance the question by explicitly adding:
+a) Missing table/column names (as indicated in the analysis)
+b) Temporal constraints (e.g., semester, year, quarter) if relevant
+c) Categorical dimensions (e.g., student type, degree level)
+d) Aggregation requirements (e.g., sum, average, count)
+
+3. Structural Reformulation
+# Use the following template to restructure the question:
+"In a database containing [missing table], how to [core VP]? Include [missing column] for [specific purpose], filtered by [temporal dimension] and grouped by [categorical dimension]."
+
+[Output Requirements]
+# Preserve all technical terms from the original question.
+# Do not include explanatory notes or unrelated content.
+
+[Example Demonstration]
+Question: Find the average age of faculty members.
+Analysis: Missing birth_year column and department table.
+Rewritten Question: In a database containing faculty_birth_year and department_info, how to calculate the average age of faculty members grouped by department_name?
+
+[Task Execution]
+Now, rewrite the following question based on the provided analysis:
+Question: {question}
+Analysis: {analysis}
+Rewritten Question:
 """
 
 FAIR_EVAL_DEBATE_TEMPLATE = """
@@ -177,26 +256,37 @@ Consequently, it is imperative to thoroughly review and double-check your extrac
 Now it’s your time to talk, please make your talk short and clear, {agent_name} !
 """
 
-GENERATE_DATA_ANALYST_ROLE_DESCRIPTION = """
-You are now data analyst, one of the referees in this task.You are highly proficient in writing SQL statements and independantly thinking.
-Your job is to identify and extract all the necessary database schemas required for generating correct SQL statement that corresponds to the given problem.
+GENERATE_DATA_ANALYST_ROLE_DESCRIPTION = """[Role] 
+You are a meticulous Data Analyst with deep expertise in SQL and database schema analysis. Your task is to systematically identify and retrieve all schema components required to construct accurate, syntactically correct SQL statements based on user questions.
+[Instructions]
+1. Analyze the User Query. Identify the tables, columns, relationships, and constraints (e.g., primary/foreign keys) explicitly or implicitly referenced in the question.
+2. Schema Extraction Process. 
+# List ALL relevant tables involved in the query, even if indirectly referenced (e.g., join tables). 
+# Extract ALL columns needed for: SELECT (output fields), WHERE/JOIN/HAVING (filtering/logic), GROUP BY/ORDER BY (aggregation/sorting).
+# Explicitly state joins between tables, including: Join type (INNER, LEFT, etc.), Join conditions (e.g., table1.id = table2.foreign_id). (4) Include constraints (e.g., NOT NULL, unique indexes) that impact the query logic.
+3. Validation Check. Before output schemas, confirm that: 
+# No required tables/columns are omitted. 
+# All joins and constraints are explicitly defined. 
+# Ambiguities in column/table names are resolved (e.g., users.name vs products.name).
 """
 
-GENERATE_DATABASE_SCIENTIST_ROLE_DESCRIPTION = """
-You are database scientist,one of the referees in this task.You are a professional engaged in SQL statement writing specifications, possessing a strong background in critical thinking,problem-solving abilities,and a robust capacity for independent thinking. 
-Your primary responsibility is to guarantee that the extracted database schemas is adequately comprehensive, leaving no room for omitting any essential tables or columns.
-Please help data analysts identify any errors or deficiencies in the extracted database schemas from data analysts (e.g. redundant or noisy fields, missing key query entities, missing critical filtering conditions, without crucial database join fields, etc.).
-Noted that disregard the shortcomings in the database table creation statements.
-"""
+GENERATE_DATABASE_SCIENTIST_ROLE_DESCRIPTION = """[Role]
+You are a Database Scientist tasked with rigorously auditing the Data Analyst’s schema extraction process. Your expertise lies in identifying logical flaws, data completeness issues, and adherence to SQL best practices.
+[Responsibilities]
+1. Critical Evaluation. Scrutinize the Data Analyst’s extracted schema for: Missing components (tables, columns, joins, constraints). Redundant/noisy fields unrelated to the query. Ambiguous or incorrect joins (e.g., missing foreign keys). Omitted filtering conditions critical to the user’s question. Verify alignment with the full database schema (provided as context).
+2. Feedback Priorities: Focus only on schema extraction errors, not table design flaws (e.g., normalization issues). Prioritize errors that would lead to incorrect SQL results or runtime failures.
+[Evaluation Checklist]
+For every Data Analyst submission, systematically check:
+1.Completeness: Are all tables/columns required for the query included? Are implicit relationships (e.g., shared keys) made explicit?
+2. Correctness: Do joins match the database’s defined relationships (e.g., foreign keys)? Are constraints (e.g., NOT NULL, date ranges) properly reflected?
+3. Noise Reduction: Are irrelevant tables/columns included? Flag them.
+4. Clarity: Are ambiguous column/table names disambiguated (e.g., user.id vs order.user_id)?"""
 # line 2:Your job is to to ensure that the selected database schemas are well-considered and can be used to construct the exact SQL statements corresponding to the Natural Language Question.
 
 GENERATE_SOURCE_TEXT_TEMPLATE = """
 The following is a user query in natural language, along with the full database schema (including data tables and fields). A discussion is needed to determine the most appropriate schema elements that will enable the creation of the correct SQL statement.
-## 
-query:{query}
-##
-{context_str}
-l
+## query:{query}
+## {context_str}
 """
 
 GENERATE_SUMMARY_TEMPLATE = """

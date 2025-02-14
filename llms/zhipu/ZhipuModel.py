@@ -74,7 +74,7 @@ class ZhipuModel(CustomLLM):
 if __name__ == "__main__":
     from SchemaLinkingCompare.llms.ApiPool import ZhipuApiPool
 
-    llm = ZhipuModel(api_key="15a39da88fc4f749b9a09d885166665f.K2ljqdl1HbYjnm7p", model_name="glm-4-air")
+    llm = ZhipuModel(api_key="", model_name="glm-4-air")
     try:
         answer = llm.complete("桌子上有4个苹果，小红吃了1个，小刚拿走了2个，还剩下几个苹果？").text
         print(answer)

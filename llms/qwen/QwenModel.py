@@ -10,9 +10,6 @@ from llama_index.core.llms.callbacks import llm_completion_callback
 from openai import OpenAI
 from baselines.LinkAlign.config import *
 
-
-os.environ['HTTP_PROXY'] = 'socks5://127.0.0.1:10808'
-os.environ['HTTPS_PROXY'] = 'socks5://127.0.0.1:10808'
 class QwenModel(CustomLLM):
     context_window: int = CONTEXT_WINDOW
     max_tokens: int = MAX_OUTPUT_TOKENS
